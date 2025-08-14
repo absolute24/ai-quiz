@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIクイズ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+            overflow: auto; /* スクロールバーを自動表示 */
+            max-height: 100vh; /* 表示領域に収まるように */
+        }
+
+        .fade-in {
+            animation: fadeIn 1.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .title-screen, .quiz-container {
+            transform: scale(0.9);
+            opacity: 0;
+            animation: popIn 1.5s ease-in-out forwards;
+            border: 3px solid #bb86fc;
+            position: relative;
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        button {
+            background-color: #6200ea;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+            button:hover {
+                background-color: #3700b3;
+                transform: scale(1.1);
+            }
+
+        .quiz-container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            max-width: 600px;
+            margin: auto;
+            margin-bottom: 40px;
+            display: none; /* 最初は非表示にしておく */
+            text-align: center;
+            overflow: auto; /* クイズ部分にもスクロールを許可 */
+            max-height: 80vh; /* クイズ全体の高さを制限 */
+        }
+
+        .answer {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .correct {
+            background-color: #4caf50;
+            color: #ffffff;
+        }
+
+        .incorrect {
+            background-color: #f44336;
+            color: #ffffff;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            color: #e0e0e0;
+        }
+
+            .results-table th, .results-table td {
+                border: 1px solid #333;
+                padding: 12px;
+                text-align: center;
+                font-size: 1.1em;
+            }
+
+            .results-table th {
+                background-color: #333;
+                font-weight: bold;
+            }
+
+        .title-screen {
+            text-align: center;
+            padding: 60px;
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            max-width: 500px;
+            margin: 100px auto;
+        }
+
+        .images {
+            display: flex;
+            justify-content: flex-start; /* 左詰めで並べる */
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+            overflow-x: auto; /* 横スクロールを有効にする */
+            white-space: nowrap; /* 画像を一列に並べる */
+        }
+
+        img {
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            animation: fadeIn 2s ease-in-out;
+            border: 2px solid #bb86fc;
+            width: 100%; /* 画像を親要素の幅に合わせて拡大 */
+            max-width: 250px; /* 最大幅を設定して画像が無制限に大きくならないようにする */
+            cursor: pointer;
+            transition: transform 0.3s;
+            display: inline-block; /* 画像を横に並べるためにブロック要素化 */
+            object-fit: cover; /* 画像が比率を維持しながら親要素に収まるように調整 */
+        }
+
+            img:hover {
+                transform: scale(1.05);
+            }
+
+        .button-glow {
+            box-shadow: 0 0 20px #6200ea;
+            animation: glow 1.5s infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px #6200ea;
+            }
+
+            to {
+                box-shadow: 0 0 20px #6200ea;
+            }
+        }
+
+        h1, h2 {
+            font-family: 'Roboto', sans-serif;
+            letter-spacing: 1px;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #bb86fc;
+        }
+
+        h2 {
+            font-size: 2em;
+            color: #bb86fc;
+        }
+
+        #timer {
+            font-size: 1.5em;
+            color: #ff5252;
+            margin-bottom: 15px;
+        }
+
+        #hint {
+            margin-top: 15px;
+            color: #ffca28;
+            font-style: italic;
+        }
+
+        #progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        #progress-bar-inner {
+            height: 100%;
+            width: 0;
+            background-color: #6200ea;
+            border-radius: 12px;
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+    <script>
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let timer;
+        let timeLeft = 30;
+
+        function showTitleScreen() {
+            document.getElementById('title-screen').classList.add('fade-in');
+            document.getElementById('title-screen').style.display = 'block';
+        }
+
+        function startQuiz() {
+            document.getElementById('title-screen').style.display = 'none';
+            showQuestion(currentQuestionIndex);
+            startTimer();
+            updateProgressBar();
+        }
+
+        function startTimer() {
+            timeLeft = 60;
+            document.getElementById('timer').textContent = `残り時間: ${timeLeft}秒`;
+            timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = `残り時間: ${timeLeft}秒`;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    skipQuestion();
+                }
+            }, 1000);
+        }
+
+        function showQuestion(index) {
+            const questions = document.querySelectorAll('.quiz-container');
+            questions.forEach((question, i) => {
+                if (i === index) {
+                    question.classList.add('fade-in');
+                    question.style.display = 'block';
+                } else {
+                    question.style.display = 'none';
+                }
+            });
+            provideHint();
+        }
+
+        function provideHint() {
+            const hints = [
+                "可愛い",
+                "クール",
+                "どれが人間？",
+                "分からないなー"
+            ];
+            const randomHint = hints[Math.floor(Math.random() * hints.length)];
+            document.getElementById('hint').textContent = `どこだ？: ${randomHint}`;
+        }
+
+        function checkAnswer(questionId, selectedAnswer) {
+            clearInterval(timer);
+            userAnswers.push({ questionId, selectedAnswer });
+
+            currentQuestionIndex++;
+            if (currentQuestionIndex < document.querySelectorAll('.quiz-container').length) {
+                showQuestion(currentQuestionIndex);
+                startTimer();
+                updateProgressBar();
+            } else {
+                showResults();
+            }
+        }
+
+        function skipQuestion() {
+            userAnswers.push({ questionId: `q${currentQuestionIndex + 1}`, selectedAnswer: "未回答" });
+            currentQuestionIndex++;
+            if (currentQuestionIndex < document.querySelectorAll('.quiz-container').length) {
+                showQuestion(currentQuestionIndex);
+                startTimer();
+                updateProgressBar();
+            } else {
+                showResults();
+            }
+        }
+
+        function updateProgressBar() {
+            const progress = ((currentQuestionIndex + 1) / document.querySelectorAll('.quiz-container').length) * 100;
+            document.getElementById('progress-bar-inner').style.width = progress + '%';
+        }
+
+        function showResults() {
+            const correctAnswers = {
+                'q1': 'img1', // 問題1は画像1が正解
+                'q2': 'img1', // 問題2は画像2が正解
+                'q3': 'img3', // 問題3は画像3が正解
+                'q4': 'img1', // 問題4は画像1が正解
+                'q5': 'img2', // 問題5は画像2が正解
+                'q6': 'img1'  // 問題6は画像1が正解
+            };
+
+            let correctCount = 0;
+            let resultHtml = '<h2 class="fade-in">結果</h2>';
+            resultHtml += '<table class="results-table fade-in">';
+            resultHtml += '<tr><th>質問</th><th>あなたの回答</th><th>結果</th></tr>';
+            userAnswers.forEach((answer, index) => {
+                const isCorrect = answer.selectedAnswer === correctAnswers[answer.questionId];
+                if (isCorrect) correctCount++;
+                resultHtml += `<tr><td>問題 ${index + 1}</td><td>${answer.selectedAnswer}</td><td><strong>${isCorrect ? '正解' : '不正解'}</strong></td></tr>`;
+            });
+            resultHtml += '</table>';
+            resultHtml += `<p class="fade-in">あなたの得点: ${correctCount} / ${userAnswers.length}</p>`;
+            resultHtml += '<button class="button-glow" onclick="retryQuiz()">もう一度挑戦する</button>';
+
+            document.body.innerHTML = resultHtml;
+        }
+
+        function retryQuiz() {
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            document.body.innerHTML = documentBackup;
+            showTitleScreen();
+        }
+
+        let documentBackup;
+        window.onload = function () {
+            documentBackup = document.body.innerHTML;
+            showTitleScreen();
+        };
+    </script>
+</head>
+<body>
+    <div id="title-screen" class="title-screen">
+        <h1>AIクイズへようこそ！</h1>
+        <p>クイズを始める準備はできましたか？</p>
+        <button class="button-glow" onclick="startQuiz()">スタート</button>
+    </div>
+
+    <div id="timer" class="fade-in"></div>
+    <div id="hint" class="fade-in"></div>
+    <div id="progress-bar" class="fade-in">
+        <div id="progress-bar-inner"></div>
+    </div>
+
+    <div class="quiz-container" id="q1">
+        <h2>人間はどこだ？</h2>
+        <div class="images">
+            <img src="121761469_p0_master1200.jpg" alt="画像 1-1" onclick="checkAnswer('q1', 'img1')">
+            <img src="124701639_p0_master1200.jpg" alt="画像 1-2" onclick="checkAnswer('q1', 'img2')">
+            <img src="122146508_p0_master1200.jpg" alt="画像 1-3" onclick="checkAnswer('q1', 'img3')">
+        </div>
+    </div>
+
+
+    <div class="quiz-container" id="q2">
+        <h2>人間はどこだ？</h2>
+        <div class="images">
+            <img src="123223732_p0_master1200.jpg" alt="画像 2-1" onclick="checkAnswer('q2', 'img1')">
+            <img src="2e1e4dfd-6a46-447b-a7c7-9988a767a95e.png" alt="画像 2-2" onclick="checkAnswer('q2', 'img2')">
+            <img src="29f0a803-0719-4f3b-855e-a0e8d1613a86.png" alt="画像 2-3" onclick="checkAnswer('q2', 'img3')">
+        </div>
+    </div>
+
+
+    <div class="quiz-container" id="q3">
+        <h2>AIはどこだ？</h2>
+        <div class="images">
+            <img src="124494279_p0_master1200.jpg" alt="画像 3-1" onclick="checkAnswer('q3', 'img1')">
+            <img src="123067401_p0_master1200.jpg" alt="画像 3-2" onclick="checkAnswer('q3', 'img2')">
+            <img src="123604248_p0_master1200.jpg" alt="画像 3-3" onclick="checkAnswer('q3', 'img3')">
+        </div>
+    </div>
+
+
+    <div class="quiz-container" id="q4">
+        <h2>人間はどこだ？</h2>
+        <div class="images">
+            <img src="0055_PRISM-SERENADE.jpg" alt="画像 4-1" onclick="checkAnswer('q4', 'img1')">
+            <img src="69d0b245-98e3-45e0-8fdb-c926f4ef2e17.png" alt="画像 4-2" onclick="checkAnswer('q4', 'img2')">
+            <img src="c01da493-59d0-49d6-a494-2ef45a78380d.png" alt="画像 4-3" onclick="checkAnswer('q4', 'img3')">
+        </div>
+    </div>
+
+
+    <div class="quiz-container" id="q5">
+        <h2>人間はどこだ？</h2>
+        <div class="images">
+            <img src="117883923_p0_master1200.jpg" alt="画像 5-1" onclick="checkAnswer('q5', 'img1')">
+            <img src="120154475_p0_master1200.jpg" alt="画像 5-2" onclick="checkAnswer('q5', 'img2')">
+            <img src="124846486_p4_master1200.jpg" alt="画像 5-3" onclick="checkAnswer('q5', 'img3')">
+        </div>
+    </div>
+
+
+    <div class="quiz-container" id="q6">
+        <h2>人間はどこだ？</h2>
+        <div class="images">
+            <img src="124403324_p0_master1200.jpg" alt="画像 6-1" onclick="checkAnswer('q6', 'img1')">
+            <img src="122684703_p0_master1200.jpg" alt="画像 6-2" onclick="checkAnswer('q6', 'img2')">
+            <img src="117495518_p0_master1200.jpg" alt="画像 6-3" onclick="checkAnswer('q6', 'img3')">
+        </div>
+    </div>
+
+
+</body>
+</html>
